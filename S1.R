@@ -2,6 +2,7 @@ library("rjson")
 library("pdc")
 library("arules")
 library("Matrix")
+library("TraMineR")
 BedPressure <- fromJSON(file = ("Data/A_66101100_Vector.json"))
 BedPressure <- BedPressure$TimeVector
 BasinPIR <- fromJSON(file = ("Data/A_6697115_Vector.json"))
@@ -27,14 +28,67 @@ ToiletFlush <- ToiletFlush$TimeVector
 CupboardMagnetic <- fromJSON(file = ("Data/A_67117112_Vector.json"))
 CupboardMagnetic <- CupboardMagnetic$TimeVector
 
+
+
 dataM <- cbind(BedPressure,BasinPIR,MicrowaveElectric,MaindoorMagnetic,SeatPressure,ToasterElectric,CabinetMagnetic,CooktopPIR,FridgeMagnetic,ShowerPIR,ToiletFlush,CupboardMagnetic)
 
-#dimnames(dataM) <- list( r("66101100","6697115","67111111","67117112","679798","70114105","7710599","7797105","8310197","83104111","84111105","8411197"))
+
 
 dimnames(dataM) <- list(rownames(dataM, do.NULL = FALSE, prefix = "T"),colnames(dataM, do.NULL = FALSE, prefix = "Device"))
-#dimnames(dataM) <- list( rownames(dataM, do.NULL = FALSE, prefix="T"), colnames("BedPressure","BasinPIR","MicrowaveElectric","MaindoorMagnetic","SeatPressure","ToasterElectric","CabinetMagnetic","CooktopPIR","FridgeMagnetic","ShowerPIR","ToiletFlush","CupboardMagnetic"))
-#dimnames(dataM) <- list(colnames("BedPressure","BasinPIR","MicrowaveElectric","MaindoorMagnetic","SeatPressure","ToasterElectric","CabinetMagnetic","CooktopPIR","FridgeMagnetic","ShowerPIR","ToiletFlush","CupboardMagnetic"))
 dataTrans <- as(dataM, "transactions")
 
+#Converting to a logical dataset
+#dataLog <- as.logical(dataM) 
+
+png(filename = "itemFreqPlot.png", width=700, height=700)
+itemFrequencyPlot(dataTrans)
+dev.off()
+
 dataClust <-  pdclust(dataM, m = NULL, t=NULL,divergence= symmetricAlphaDivergence,clustering.method = "complete" )
+
+png(filename = "hClust.png", width=700, height=700)
 plot(dataClust, labels = NULL, type = "triangle", cols="blue", timeseries.as.labels = FALSE, p.values = F)
+dev.off()
+
+#Sequence part
+seq <- read.csv("Data/SequenceData.txt", header = FALSE)
+seq <- seqdecomp(seq)
+seq <- seqdef(seq, informat = "DSS")
+
+#Output plots
+#Visualisation of the states in each state successions Assumed to be same length
+png(filename = "seqPlot.png", width=700, height=700)
+seqiplot(seq, title = "State successions, visualised", withlegend= FALSE)
+dev.off()
+
+#Display of general state distributions patterns 
+png(filename = "stateDistPlot.png", width=700, height=700)
+seqdplot(seq, title = "State distribution plot", withlegend = FALSE, border = NA)
+dev.off()
+
+#Most frequent sequences, in order
+png(filename = "seqFreqPlot.png", width=700, height=700)
+seqfplot(seq, title = "Sequence frequency plot", withlegend = FALSE)
+dev.off()
+
+
+#Entropy with regards to state transitions
+png(filename = "activityEntropy.png", width=700, height=700)
+seqHtplot(seq, title = "State Traversal Entropy through the day", withlegend = FALSE)  #sequence entropy
+dev.off()
+
+#Legend
+png(filename = "legend.png")
+seqlegend(seq, title = "Legend")
+dev.off()
+
+#compute transition probabilities
+seqTrans <- seqtrate(seq)
+
+# Frequent sequences
+fseq <- seqefsub(seqecreate(seq), pMinSupport = 0.7)
+
+
+png(filename = "freqSubSeq.png", width=700, height=700)
+plot(fseq, col="cyan", main = "Most Frequent State Transitions")
+dev.off()
